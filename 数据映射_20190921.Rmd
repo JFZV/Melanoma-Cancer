@@ -1,0 +1,52 @@
+---
+title: "数据映射"
+author: "周金菲"
+date: "`r format(Sys.time(), '%Y年%m月%d日')`"
+output: html_document
+---
+1. 读取expanded黑色素瘤网络的节点和边数据
+```{r}
+expanded_net_nodes<-read.csv('E:/data_melanoma/expanded_network/2017-06-26_Melanoma_Map.xml_gene_singleThre_noLncRNA.gml default node.csv',header = TRUE)
+
+expanded_net_edges<-read.csv('E:/data_melanoma/expanded_network/2017-06-26_Melanoma_Map.xml_gene_singleThre_noLncRNA.gml default edge.csv',header = TRUE)
+```
+
+2. 读取disgenet基因-疾病关联数据
+```{r}
+disgenet_curated<-read.table('E:/data_melanoma/disgenet/curated_gene_disease_associations.tsv',header = TRUE,sep = '\t',quote = '')
+
+disgenet_befree<-read.table('E:/data_melanoma/disgenet/befree_gene_disease_associations.tsv',header = TRUE,sep = '\t',quote = '')
+
+disgenet_all<-read.table('E:/data_melanoma/disgenet/all_gene_disease_associations.tsv',header = TRUE,sep = '\t',quote = '')
+
+disgenet_all_pmid<-read.table('E:/data_melanoma/disgenet/all_gene_disease_pmid_associations.tsv',header = TRUE,sep = '\t',quote = '')
+```
+
+3.读取cbioportal数据
+```{r}
+comb_mutated_genes<-read.table('E:/data_melanoma/cbioportal/combined_Mutated_Genes.txt',header = FALSE,sep = '\t',quote = '')
+names(comb_mutated_genes)<-c('Gene','MutSig_Qvalue','Total_Number_of_Mutations','Number_of_Samples_Mutations','Percentage_of_Samples_Mutations','Is_OncoKB_Gene_Mutations')#列名重命名
+
+comb_cna_genes<-read.table('E:/data_melanoma/cbioportal/combined_CNA_Genes.txt',header = FALSE,sep = '\t',quote = '')
+names(comb_cna_genes)<-c('Gene','Gistic_Qvalue','Cytoband','CNA','Number_of_Samples_CNA','Percentage_of_Samples_CNA','Is_OncoKB_Gene_CNA')#列名重命名
+
+comb_clinical_data<-read.table('E:/data_melanoma/cbioportal/combined_study_clinical_data.tsv',header = TRUE,sep = '\t',quote = '')
+```
+
+4.将disgenet和cbioportal数据映射到网络中
+```{r}
+data_merged1<-merge(x = expanded_net_nodes,y = disgenet_all,by.x = 'hgnc_symbol',by.y = 'geneSymbol',all.x = TRUE)
+data_merged2<-merge(x = data_merged1,y = comb_mutated_genes,by.x = 'hgnc_symbol',by.y = 'Gene',all.x = TRUE)
+data_merged3<-merge(x = data_merged2,y = comb_cna_genes,by.x = 'hgnc_symbol',by.y = 'Gene',all.x = TRUE)
+#先不筛选疾病名称，将所有数据保存到文件中
+write.csv(data_merged3,file = 'E:/data_melanoma/network_nodes_mapped.csv',row.names = FALSE)
+
+
+#筛选和melanoma相关的疾病
+library(stringr)
+Is_melanoma<-str_detect(as.character(data_merged3$diseaseName),'melanoma')
+melanoma_data_merged3<-data_merged3[which(Is_melanoma),]
+#筛选和melanoma有关的疾病名称，将筛选后的数据保存到文件中
+write.csv(melanoma_data_merged3,file = 'E:/data_melanoma/melanoma_network_nodes_mapped.csv',row.names = FALSE)
+```
+
