@@ -1,0 +1,61 @@
+---
+title: "富集分析"
+output: html_document
+---
+1.Input Data
+```{r}
+d<-read.csv(file = 'E:/data_melanoma/melanoma_network_nodes_mapped.csv',header = TRUE)
+dim(d) #2188 398
+length(unique(d$hgnc_symbol)) #1008
+
+geneList<-data.frame(Symbol=d$hgnc_symbol,Entrez=d$geneId,Total_Number_of_Mutations=d$Total_Number_of_Mutations,Copy_Number_Alteration=d$CNA)
+geneList<-geneList[!duplicated(geneList$Entrez),]
+dim(geneList) #1008 4
+```
+2.Gene Ontology Analysis
+```{r}
+#GO classification
+library(clusterProfiler)
+library(org.Hs.eg.db)
+ggo<-groupGO(as.character(geneList$Entrez),OrgDb = org.Hs.eg.db,ont = 'CC',level = 3,readable = TRUE)
+dim(ggo) #755 5
+#GO over-representation test
+ego<-enrichGO(as.character(geneList$Entrez),OrgDb = org.Hs.eg.db,ont = 'all',readable = TRUE)
+barplot(ego,showCategory = 20,title = "enrichGO result")
+dim(ego) #3996 10
+dim(ego[ego$ONTOLOGY=='BP',]) #3509 10
+dim(ego[ego$ONTOLOGY=='MF',]) #251 10
+dim(ego[ego$ONTOLOGY=='CC',]) #236 10
+write.csv(as.data.frame(ego),'E:/enrichment_analysis/enrichGO.csv',row.names = FALSE)
+```
+3.KEGG Analysis
+```{r}
+kk<-enrichKEGG(as.character(geneList$Entrez))
+dim(kk) #158 9
+barplot(kk,showCategory = 20,title = "enrichKEGG result")
+kk<-setReadable(kk,OrgDb = org.Hs.eg.db,keyType = 'ENTREZID')
+write.csv(as.data.frame(kk),'E:/enrichment_analysis/enrichKEGG.csv',row.names = FALSE)
+```
+4.Biological Theme Comparison
+```{r}
+summary(geneList$Total_Number_of_Mutations) 
+#(Min. 1) (1st Qu. 9) (Median 16) (3rd Qu. 29) (Max. 593)
+
+geneList$Mutation_Level<-NA
+
+geneList$Mutation_Level[geneList$Total_Number_of_Mutations>=1 & geneList$Total_Number_of_Mutations<9]<-'1_8'
+
+geneList$Mutation_Level[geneList$Total_Number_of_Mutations>=9 & geneList$Total_Number_of_Mutations<16]<-'9_15'
+
+geneList$Mutation_Level[geneList$Total_Number_of_Mutations>=16 & geneList$Total_Number_of_Mutations<29]<-'16_28'
+
+geneList$Mutation_Level[geneList$Total_Number_of_Mutations>=29 & geneList$Total_Number_of_Mutations<593]<-'29_593'
+
+formula_kk<-compareCluster(Entrez~Mutation_Level+Copy_Number_Alteration,data = geneList,fun = 'enrichKEGG')
+write.csv(as.data.frame(formula_kk),file = 'E:/enrichment_analysis/formula_enrichKEGG.csv',row.names = FALSE)
+dotplot(formula_kk,x = ~Mutation_Level,title = "formula enrichKEGG result")+ggplot2::facet_grid(~Copy_Number_Alteration)
+
+```
+
+
+

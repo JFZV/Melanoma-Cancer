@@ -1,0 +1,30 @@
+---
+title: "网络聚类"
+output: html_document
+---
+```{r}
+#读取黑色素瘤网络节点数据
+expanded_net_nodes<-read.csv('E:/data_melanoma/expanded_network/2017-06-26_Melanoma_Map.xml_gene_singleThre_noLncRNA.gml default node.csv',header = TRUE)
+
+#读取黑色素瘤网络边数据
+expanded_net_edges<-read.csv('E:/data_melanoma/expanded_network/2017-06-26_Melanoma_Map.xml_gene_singleThre_noLncRNA.gml default edge.csv',header = TRUE)
+
+#绘制网络图
+expanded_net_graph_nodes<-data.frame(id = expanded_net_nodes$id,expanded_net_nodes$hgnc_symbol)#网络图的节点
+expanded_net_graph_edges<-data.frame(source = expanded_net_edges$source,traget = expanded_net_edges$target)#网络图的边
+expanded_net_graph<-graph_from_data_frame(d = expanded_net_graph_edges,directed = TRUE,vertices = expanded_net_graph_nodes)#网络图
+length(V(expanded_net_graph))#节点的个数5860
+length(E(expanded_net_graph))#边的条数14494
+```
+
+1.cluster_spinglass
+```{r}
+is_connected(expanded_net_graph)
+cluster_spinglass(expanded_net_graph,weights = NULL)
+```
+
+2.cluster_walktrap
+```{r}
+cluster_walktrap(expanded_net_graph,weights = NULL)
+```
+
