@@ -9,3 +9,5 @@
 将cbioprtal和disgenent的数据映射到原始网络中：network_nodes_mapped.rar  
 
 将cbioprtal和disgenent的数据映射到原始网络中，并筛选出疾病名称包含melanoma的数据记录：melanoma_network_nodes_mapped.rar
+
+将GePIA数据映射到网络中：net_mapped_with_gepia.csv
