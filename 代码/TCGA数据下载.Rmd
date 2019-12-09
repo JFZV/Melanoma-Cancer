@@ -1,0 +1,26 @@
+---
+title: "TCGA-SKCM数据"
+output: html_document
+---
+```{r}
+query1<- GDCquery(project = "TCGA-SKCM", 
+                  data.category = "Transcriptome Profiling",
+                  data.type = "Gene Expression Quantification",
+                  workflow.type = "HTSeq - Counts")
+GDCdownload(query1)
+data1<-GDCprepare(query1)
+dataPrep1<-TCGAanalyze_Preprocessing(data1,
+                                     cor.cut = 0.6,
+                                     datatype = "HTSeq - Counts")
+dataNorm1<-TCGAanalyze_Normalization(dataPrep1,
+                                     geneInfo = geneInfoHT,
+                                     method = "gcContent")
+dataNorm2<-TCGAanalyze_Normalization(dataNorm1,
+                                     geneInfo = geneInfoHT,
+                                     method = "geneLength")
+dataFilt1<-TCGAanalyze_Filtering(dataNorm2,
+                                 method = "quantile",
+                                 qnt.cut = 0.25)
+dataPrep1_raw<-UseRaw_afterFilter(dataPrep1,dataFilt1)
+```
+

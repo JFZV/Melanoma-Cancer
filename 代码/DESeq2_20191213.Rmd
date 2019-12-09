@@ -1,0 +1,115 @@
+---
+title: "DESeq2"
+output: html_document
+---
+
+1.准备数据
+```{r}
+dataPrep<-read.csv("E:/TCGA-SKCM/skcm_HTSeq_count_dataPrep.csv",header = TRUE,row.names = 1,check.names = FALSE)
+
+#primary solid tumor samples
+dataSmTP<-read.csv("E:/data_melanoma/TCGA_SKCM_dataSmTP.csv",header = TRUE,check.names = FALSE)
+colnames(dataSmTP)[1]<-"sample_id"
+dataSmTP$sample_type = "treated"
+#metastatic samples
+dataSmTM<-read.csv("E:/data_melanoma/TCGA_SKCM_dataSmTM.csv",header = TRUE,check.names = FALSE)
+colnames(dataSmTM)[1]<-"sample_id"
+dataSmTM$sample_type = "untreated"
+
+dataSm<-rbind(dataSmTP,dataSmTM)
+row.names(dataSm)<-dataSm$sample_id
+
+dataPrep<-dataPrep[,colnames(dataPrep) %in% row.names(dataSm)]
+
+group_list<-dataSm[colnames(dataPrep),"sample_type"]
+group_list<-as.factor(group_list)
+
+colData<-data.frame(row.names = colnames(dataPrep),group_list = group_list)
+all(row.names(colData) %in% colnames(dataPrep))
+all(row.names(colData) == colnames(dataPrep))
+```
+
+3.DESeq2
+```{r}
+library(DESeq2)
+dds<-DESeqDataSetFromMatrix(countData = dataPrep,colData = colData, design = ~group_list)#199947 482
+dds2<-DESeq(dds)
+res<-results(dds2,contrast = c("group_list","untreated","treated"))
+write.csv(res,"E:/data_melanoma/DESeq2_skcm_exp.csv",row.names = TRUE)
+```
+
+4.将DESeq2结果和网络数据整合
+```{r}
+d1<-read.csv("E:/data_melanoma/melanoma_network_nodes_mapped.csv",header = TRUE,check.names = FALSE)
+d2<-read.csv("E:/data_melanoma/DESeq2_skcm_exp.csv",header = TRUE,check.names = FALSE)
+colnames(d2)[1]<-"ensemblID"
+d<-merge(x = d1,y = d2,by.x = "ensembl",by.y = "ensemblID",all.x = TRUE)
+d<-d[!duplicated(d),]#2188
+write.csv(d,"E:/data_melanoma/net_mapped_with_DESeq2.csv",row.names = FALSE)
+```
+
+5.plotMA
+
+```{r}
+pdf("MAplot.pdf");
+plotMA(res,ylim = c(-2,2));
+dev.off()
+```
+
+6.plotCounts
+```{r}
+pdf("Countsplot.pdf");
+plotCounts(dds2,gene = which.min(res$padj),intgroup = "group_list");
+leg.txt<-c("treated (Primary Solid Tumor)","untreated (Metastatic)");
+legend("topright",legend = leg.txt);
+dev.off()
+```
+
+7.counts transformations
+```{r}
+library(SummarizedExperiment)
+#VST(variance satbilizing transformations)
+vsd<-vst(dds2,blind = FALSE)
+head(assay(vsd),3)
+```
+
+8.mean_standard_deviation_plot
+```{r}
+# this gives log2(n + 1)
+ntd <- normTransform(dds)
+library("vsn")
+pdf("ntd_mean_standard_deviation_plot.pdf");
+meanSdPlot(assay(ntd));
+dev.off()
+
+pdf("vsd_mean_standard_deviation_plot.pdf");
+meanSdPlot(assay(vsd));
+dev.off()
+```
+
+
+7.plotPCA
+```{r}
+pdf("PCA_plot.pdf");
+plotPCA(vsd,intgroup = c("group_list"));
+dev.off()
+```
+
+8.boxPlot
+```{r}
+pdf("boxplot.pdf");
+select<-order(rowMeans(counts(dds2,normalized = TRUE)),decreasing = TRUE)[1:200];
+cooks<-log10(assays(dds2)[["cooks"]][select,1:30]);
+colnames(cooks)<-substr(colnames(cooks),1,12);
+par(mar=c(5,5,2,2));
+boxplot(cooks,las=2,cex.axis = 0.5);
+dev.off()
+```
+
+9.dispersion plot
+```{r}
+pdf("dispersionPlot.pdf")
+plotDispEsts(dds2);
+dev.off()
+```
+

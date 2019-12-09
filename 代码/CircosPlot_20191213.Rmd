@@ -1,0 +1,114 @@
+---
+title: "circosplot"
+output: html_document
+---
+1.准备数据
+```{r}
+options(stringsAsFactors = FALSE)
+library(Homo.sapiens)
+library(OmicCircos)
+
+#获取基因位置
+locations<-genes(Homo.sapiens, columns=c("SYMBOL", "ENSEMBL"))
+locations<-as.data.frame(locations)
+locations<-locations[!is.na(locations[,'SYMBOL']), ]
+locations<-locations[!duplicated(locations[,'SYMBOL']), ]
+
+#d<-read.csv(file = 'E:/data_melanoma/net_mapped_with_gepia.csv',header = TRUE)
+d<-read.csv(file = "E:/data_melanoma/net_mapped_with_DESeq2.csv",header = TRUE)
+Circos.Data <- d[,c("hgnc_symbol","ensembl","Total_Number_of_Mutations","Number_of_Samples_Mutations","Percentage_of_Samples_Mutations","CNA","Number_of_Samples_CNA","Percentage_of_Samples_CNA","log2FoldChange","pvalue","padj")]
+Circos.Data<-Circos.Data[!duplicated(Circos.Data),]
+tp_ind1a<-which(d$hgnc_symbol %in% locations$SYMBOL==F)
+tp_ind1b<-which(d$ensembl %in% locations$ENSEMBL==F)
+tp_ind1<-intersect(tp_ind1a,tp_ind1b)
+Circos.Data<-Circos.Data[-tp_ind1,]
+Circos.Data<-merge(Circos.Data,locations,by.x = "hgnc_symbol",by.y = "SYMBOL",all.x=T)
+Circos.Data<-Circos.Data[!duplicated(Circos.Data),]#1270个基因
+
+Plot.Circos.Data<-Circos.Data[!is.na(Circos.Data$seqnames),]#1239个基因
+Plot.Circos.Data<-Plot.Circos.Data[!is.na(Plot.Circos.Data$log2FoldChange),]#1225个基因
+Plot.Circos.Data<-Plot.Circos.Data[!is.na(Plot.Circos.Data$padj),]#1218个基因
+Plot.Circos.Data<-Plot.Circos.Data[!is.na(Plot.Circos.Data$Number_of_Samples_Mutations),]#1204个基因
+Plot.Circos.Data<-Plot.Circos.Data[!is.na(Plot.Circos.Data$Number_of_Samples_CNA),]#1092个基因
+
+#标签
+label<-Plot.Circos.Data[,c("seqnames","start","hgnc_symbol","hgnc_symbol")]
+
+#基因表达
+gene.exp<-Plot.Circos.Data[,c("seqnames","start","hgnc_symbol","log2FoldChange")]
+
+#基因突变
+gene.mutations<-Plot.Circos.Data[,c("seqnames","start","hgnc_symbol","Number_of_Samples_Mutations")]
+#gene.mutations$Number_of_Samples_Mutations[is.na(gene.mutations$Number_of_Samples_Mutations)]=0
+
+#CNA
+gene.cna<-Plot.Circos.Data[,c("seqnames","start","hgnc_symbol","Number_of_Samples_CNA")]
+#gene.cna$Number_of_Samples_CNA[is.na(gene.cna$Number_of_Samples_CNA)]=0
+
+#p值
+gene.padj<-Plot.Circos.Data[,c("seqnames","start","hgnc_symbol","padj")]
+#gene.adjp$adjp=-log10(gene.adjp$adjp)
+#tp1<-which(gene.adjp$adjp==max(gene.adjp$adjp))
+#gene.adjp$adjp[-tp1]=gene.adjp$adjp[-tp1]/max(gene.adjp$adjp[-tp1])
+#gene.adjp$adjp[tp1]=1
+tp1<-which(gene.padj$padj<0.05)
+gene.padj$padj[tp1]<-0
+gene.padj$padj[-tp1]<-1
+
+
+#基因相互作用
+#nodes<-read.csv("E:/data_melanoma/expanded_network/2017-06-26_Melanoma_Map.xml_gene_singleThre_noLncRNA.gml default node.csv",header = TRUE)
+#nodes<-nodes[,c("hgnc_symbol","ensembl","id")]
+#edges<-read.csv("E:/data_melanoma/expanded_network/2017-06-26_Melanoma_Map.xml_gene_singleThre_noLncRNA.gml default edge.csv",header = TRUE)
+#interactions<-edges[,c("source","target")]
+#interactions$source_symbol<-NA
+#interactions$target_symbol<-NA
+#for(i in 1:length(interactions$source)){
+#  for(j in 1:length(nodes$id)){
+#    if(interactions$source[i]==nodes$id[j]){
+#      interactions$source_symbol[i]=nodes$hgnc_symbol[j]
+#      break
+#    }
+#  }
+#}
+#for(i in 1:length(interactions$target)){
+#  for(j in 1:length(nodes$id)){
+#    if(interactions$target[i]==nodes$id[j]){
+#      interactions$target_symbol[i]=nodes$hgnc_symbol[j]
+#      break
+#    }
+#  }
+#}
+#write.csv(interactions,file = "E:/data_melanoma/interactions.csv",row.names = FALSE)
+interactions<-read.csv("E:/data_melanoma/interactions.csv",header = TRUE)
+
+gene.link<-interactions[,c("source_symbol","target_symbol")]
+gene.link<-gene.link[!duplicated(gene.link),]
+gene.link<-gene.link[gene.link$source_symbol!="",]
+gene.link<-gene.link[gene.link$target_symbol!="",]#12352
+gene.link<-merge(x = gene.link,y = locations,by.x = "source_symbol",by.y = "SYMBOL")
+colnames(gene.link)[3:8]<-c("source_seqnames","source_start","source_end","source_width","source_strand","source_ENSEMBL")
+gene.link<-merge(x = gene.link,y = locations,by.x = "target_symbol",by.y = "SYMBOL")
+colnames(gene.link)[9:14]<-c("target_seqnames","target_start","target_end","target_width","target_strand","target_ENSEMBL")
+plot.gene.link<-gene.link[,c("source_seqnames","source_start","source_symbol","target_seqnames","target_start","target_symbol")]
+```
+
+2.画图
+```{r}
+colors<-rainbow(10,alpha = 0.5);
+pdffile  <- "Circos_melanoma_20191213.pdf";
+pdf(pdffile, 10, 10);
+par(mar = c(1, 1, 1, 1));
+plot(c(1,800), c(1,800), type="n", axes=FALSE, xlab="", ylab="", main="");
+circos(R = 370,cir = "hg19",W = 4,type = "chr",print.chr.lab = TRUE,scale = TRUE);#最外层染色体信息
+circos(R = 380,cir = "hg19",W = 20,mapping = label,type = "label",side = "out",cex = 0.3,col = c("black","blue","red"),scale = TRUE)#标签
+circos(R = 330,cir = "hg19",W = 20,mapping = gene.exp,col.v = 4,type = "heatmap",B = FALSE,lwd = 2,scale = TRUE,col.bar = TRUE);#次外层基因表达热图
+circos(R = 290,cir = "hg19",W = 20,mapping = gene.padj,col.v = 4,type = "heatmap",B = FALSE,lwd = 2,scale = TRUE,col.bar = TRUE,col.bar.po = "bottomright");#第三层p值热图
+circos(R = 250,cir = "HG19",W = 50,mapping = gene.mutations,col.v = 4,type = "l",B = FALSE,col = colors[1],lwd = 2,cutoff = 0,scale = TRUE)#第四层基因突变曲线
+circos(R = 210,cir = "hg19",W = 50,mapping = gene.cna,col.v = 4,type = "l",B = FALSE,col = colors[2],lwd = 2,cutoff = 0,scale = TRUE);#第五层CNA曲线
+circos(R = 180,cir = "hg19",W = 50,mapping = plot.gene.link,type = "link",lwd = 2,col = "lightgray");#最内层基因相互作用连线
+leg.txt<-c("log2FoldChange","pvalue","Number_of_Samples_Mutations","Number_of_Samples_CNA");
+legend("topright",legend = leg.txt,title = "circle name (from outside to inside)",title.col = "red",cex = 0.7);
+dev.off()
+```
+
