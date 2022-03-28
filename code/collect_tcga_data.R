@@ -1,6 +1,6 @@
 library(TCGAbiolinks)
 library(SummarizedExperiment)
-# 下载的基因表达、DNA甲基化、基因突变和拷贝数变异数据都是关于hg38
+# 下载的基因表达、DNA甲基化、基因突变数据都是关于hg38
 # 下载基因表达数据
 query_exp <- GDCquery(project = "TCGA-SKCM", 
                       data.category = "Transcriptome Profiling",
@@ -28,19 +28,26 @@ saveRDS(mty_colData, "./data/TCGA-SKCM/MTY/colData.RData") # 病人注释（475个病人
 mty_rowRanges <- as.data.frame(rowRanges(data_mty))
 saveRDS(mty_rowRanges, "./data/TCGA-SKCM/MTY/rowRanges.RData") # cg探针注释（探针对应着多个基因）
 
-# 下载突变数据
+# 下载基因突变数据
 maf<-GDCquery_Maf("SKCM", pipelines = "muse") # 下载的是mutation annotation文件
 saveRDS(maf, "./data/TCGA-SKCM/SNV/maf.RData")
 
-# 下载拷贝数变异数据
-query_cnv <- GDCquery(project = "TCGA-SKCM",
-                      data.category = "Copy Number Variation",
-                      data.type = "Gene Level Copy Number Scores")
-GDCdownload(query_cnv)
-data_cnv <- GDCprepare(query_cnv)
-data_cnv <- as.data.frame(data_cnv)
-saveRDS(data_cnv, "./data/TCGA-SKCM/CNV/gene_level_copy_number_scores.RData") # 拷贝数变异得分矩阵
 
 # 下载临床数据
 clinical <- GDCquery_clinic(project = "TCGA-SKCM", type = "clinical")
 saveRDS(clinical, "./data/TCGA-SKCM/clinical.RData")
+
+query <- GDCquery(project = "TCGA-SKCM", 
+                  data.category = "Clinical",
+                  data.type = "Clinical Supplement",
+                  data.format = "BCR Biotab"
+)
+GDCdownload(query)
+sckm.tab.all <- GDCprepare(query)
+
+therapy <- sckm.tab.all$clinical_drug_skcm
+saveRDS(therapy, "./data/TCGA-SKCM/therapy.RData")
+therapy$pharmaceutical_therapy_type # therapy types
+
+radiation <- sckm.tab.all$clinical_radiation_skcm
+saveRDS(radiation, "./data/TCGA-SKCM/radiation.RData")
